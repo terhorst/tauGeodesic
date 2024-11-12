@@ -114,10 +114,10 @@ public class GeoPath {
 //            writer.println("        " + k + " a" + k + newLine + ";");
 //            writer.println(newLine + "Begin trees;" + newLine);
             Tree Origin = TauTree.constructFromTauTree(tree1);
-            Origin.changeOrderOfTaxa(Origin.getRoot(), taxonOrder);
+            changeOrderOfTaxa(Origin.getRoot(), taxonOrder);
             Origin.init(writer);
             Tree Destination = TauTree.constructFromTauTree(tree2);
-            Destination.changeOrderOfTaxa(Destination.getRoot(), taxonOrder);
+            changeOrderOfTaxa(Destination.getRoot(), taxonOrder);
             writer.println("Tree Origin = " + Origin.getRoot().toNewick() + ";");
             writer.println("Tree Destination = " + Destination.getRoot().toNewick() + ";");
             double maxHeight = 0.0;
@@ -129,9 +129,9 @@ public class GeoPath {
 
             }
             for (int i = 0; i < tauGeodesic.length; i++) {
-                geodesic[i].changeOrderOfTaxa(geodesic[i].getRoot(), taxonOrder);
+                changeOrderOfTaxa(geodesic[i].getRoot(), taxonOrder);
                 if (printOriginBranch) {
-                    writer.println("Tree " + i + " = " + geodesic[i].getRoot().toNewickWithRootBranch(maxHeight)+";");
+                    writer.println("Tree " + i + " = " + toNewickWithRootBranch(geodesic[i].getRoot(), maxHeight)+";");
                 } else {
                     writer.println("Tree " + i + " = " + geodesic[i].getRoot().toNewick()+";");
                 }
@@ -145,6 +145,64 @@ public class GeoPath {
             if (writer != null) {
                 writer.close();
             }
+        }
+    }
+
+    private static int changeOrderOfTaxa(Node node, ArrayList<String> taxonOrder) {
+        if (node.isLeaf()) {
+            return taxonOrder.indexOf(node.getID());
+        } else {
+            int left_index = changeOrderOfTaxa(node.getLeft(), taxonOrder);
+            int right_index = changeOrderOfTaxa(node.getRight(), taxonOrder);
+            if (left_index > right_index) {
+                Node left = node.getLeft();
+                Node right = node.getRight();
+                node.setLeft(right);
+                node.setRight(left);
+            }
+            return Math.min(left_index, right_index);
+        }
+    }
+
+    private static String toNewickWithRootBranch(Node n, double origin) {
+        final StringBuilder buf = new StringBuilder();
+        if (n.getLeft() != null) {
+            buf.append("(");
+            buf.append(toNewickWithRootBranch(n.getLeft(), origin));
+//          This is to add multifurcating tree support by Sasha.
+
+            for (Node node:n.getChildren()) {
+                if (!node.equals(n.getLeft())) {
+                    buf.append(',');
+                    buf.append(toNewickWithRootBranch(node, origin));
+                }
+
+            }
+//            if (getRight() != null) {                                 //Sasha
+//                buf.append(',');
+//                buf.append(getRight().toNewick(onlyTopology));
+//            }
+            buf.append(")");
+            if (n.getID() != null) {
+                buf.append(n.getID());
+            }
+        } else {
+            if (n.getID() == null) {
+                buf.append(n.getNr());
+            } else {
+                buf.append(n.getID());
+            }
+        }
+        buf.append(n.getNewickMetaData());
+        buf.append(":").append(getRootLength(n, origin));
+        return buf.toString();
+    }
+
+    private static double getRootLength(Node n, double origin) {
+        if (n.isRoot()) {
+            return origin - n.getHeight();
+        } else {
+            return n.getParent().getHeight() - n.getHeight();
         }
     }
 }

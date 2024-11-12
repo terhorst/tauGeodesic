@@ -48,7 +48,7 @@ public class TauTree {
     private void constructFromTree(Tree tree) {
         numTaxa = tree.getLeafNodeCount();
         List<Node> nodes = tree.getInternalNodes();
-        List<String> labels = tree.getTaxonset().asStringList();
+        List<String> labels = new ArrayList<String>(tree.getTaxonset().asStringList());
         Collections.sort(labels);
         Integer s = 0;
         for (String label : labels) {
