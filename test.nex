@@ -1,0 +1,14 @@
+#NEXUS
+
+BEGIN TAXA;
+    TAXLABELS
+        Species1
+        Species2
+        Species3
+        Species4;
+END;
+
+BEGIN TREES;
+    TREE simple_tree1 = ((Species1:0.1,Species2:0.1):0.3,(Species3:0.2,Species4:0.2):0.2):0.1;
+    TREE simple_tree2 = ((Species1:0.15,Species2:0.15):0.25,(Species3:0.2,Species4:0.2):0.2):0.1;
+END;

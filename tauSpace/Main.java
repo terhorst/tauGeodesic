@@ -19,81 +19,101 @@ import beast.evolution.tree.Tree;
 import beast.util.NexusParser;
 
 import java.io.File;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.StringReader;
 import java.util.Date;
 import java.util.List;
+import java.util.List;
 
-/**
- * Parsing the file, calling mean, returning the mean.
- *
- * Created on 14/11/14.
- * @author Alex Gavryushkin <alex@gavruskin.com>
- */
 public class Main {
 
     public static void main(String[] args) throws Exception {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+        while (true) {
+            System.out.println("Waiting for nexus-formatted input. Paste your nexus file:");
+            StringBuilder inputBuilder = new StringBuilder();
+            String line;
+            boolean startFound = false;
+            int endCount = 0;
 
-        if (args.length > 0) {
-            NexusParser parser = new NexusParser();
-            File treeFile = new File(args[0]);
-            parser.parseFile(treeFile);
-            List<Tree> trees = parser.trees;
+            // Read lines until we find '#NEXUS'
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
 
-            // Putting trees into an array to save 2 seconds per tree when converting them to tau-trees:
-            Tree[] treesArray = new Tree[trees.size()];
-            for (int i = 0; i < trees.size(); i++) {
-                treesArray[i] = trees.get(i);
-            }
+                // Skip leading empty lines
+                if (!startFound && line.isEmpty()) {
+                    continue;
+                }
 
-            // Converting the trees to tau-trees:
-            TauTree[] tauTrees = new TauTree[trees.size()];
-            int numberOfTreesPassed = 0;
-            for (int i = 0; i < treesArray.length; i++) {
-                tauTrees[i] = new TauTree(treesArray[i]);
-                numberOfTreesPassed=i+1;
-            }
+                // Check for the start of the nexus file
+                if (!startFound && line.equalsIgnoreCase("#NEXUS")) {
+                    startFound = true;
+                    inputBuilder.append(line).append("\n");
+                    continue;
+                }
 
-            System.out.println("The number of trees passed is " + numberOfTreesPassed + ".\n");
-            Date date = new Date();
-            System.out.println("The tau-trees have been created on " + date + ". Start computing the mean...\n");
+                // If we haven't found the start yet, skip this line
+                if (!startFound) {
+                    continue;
+                }
 
-            TauTree mean = Mean.mean(tauTrees, 10000000, 100, 0.0001);
+                // Accumulate the lines
+                inputBuilder.append(line).append("\n");
 
-            mean.labelMap = tauTrees[0].labelMap;
-
-            Tree meanBeast = TauTree.constructFromTauTree(mean);
-
-            System.out.print("\n");
-            System.out.println("Mean tree is\n");
-            System.out.println(meanBeast.getRoot().toNewick());
-            System.out.print("\n");
-
-            // Return distances to the mean:
-            //double[] dist2mean = new double[tauTrees.length];
-            //for (int i = 0; i < tauTrees.length; i++) {
-            //    dist2mean[i] = Geodesic.geodesic(mean,tauTrees[i],0.5).geoLength;
-            //    System.out.println(dist2mean[i]);
-            //}
-
-            //Return tree closest to mean:
-            double distance2mean = Geodesic.geodesic(mean,tauTrees[0],0.5).geoLength;
-            int closestTreeIndex = 0;
-            double stdDeviation = distance2mean*distance2mean;
-            for (int i = 1; i < tauTrees.length; i++) {
-                double distCurrent = Geodesic.geodesic(mean,tauTrees[i],0.5).geoLength;
-                stdDeviation = stdDeviation + distCurrent*distCurrent;
-                if (distCurrent < distance2mean) {
-                    distance2mean = Geodesic.geodesic(mean,tauTrees[i],0.5).geoLength;
-                    closestTreeIndex = i;
+                // Check for the end of the nexus file
+                if (line.equalsIgnoreCase("END;")) {
+                    endCount++;
+                    if (endCount >= 2) {
+                        break;
+                    }
                 }
             }
-            stdDeviation = Math.sqrt(stdDeviation/(tauTrees.length - 1));
-            TauTree closestTree = tauTrees[closestTreeIndex];
-            Tree closestTreeBeast = TauTree.constructFromTauTree(closestTree);
-            System.out.println("The closes tree in the sample to the mean-tree is\n");
-            System.out.println(closestTreeBeast.getRoot().toNewick());
-            System.out.print("\n");
-            System.out.println("Distance to mean is " + distance2mean + ".\n");
-            System.out.println("Standard deviation is " + stdDeviation + ".\n");
+
+            // If EOF is reached, exit the loop
+            if (line == null) {
+                break;
+            }
+
+            // If we didn't find the start or end, prompt the user again
+            if (!startFound || endCount < 2) {
+                System.err.println("Incomplete nexus file detected. Please ensure the file starts with '#NEXUS' and ends with 'END;'.");
+                continue;
+            }
+
+            String inputData = inputBuilder.toString();
+            // Now parse the inputData using NexusParser
+            try {
+                NexusParser parser = new NexusParser();
+                StringReader stringReader = new StringReader(inputData);
+
+                // Assuming NexusParser has been modified to accept a Reader
+                parser.parseFile("memory", stringReader);
+
+                List<Tree> trees = parser.trees;
+                System.out.println("The number of trees is " + trees.size() + ".\n");
+
+                // Convert the trees to TauTree format
+                TauTree[] tauTrees = new TauTree[trees.size()];
+                for (int i = 0; i < trees.size(); i++) {
+                    tauTrees[i] = new TauTree(trees.get(i));
+                }
+
+                // Compute all pairwise distances between the trees
+                System.out.println("Computing pairwise distances...");
+                int numTrees = tauTrees.length;
+                for (int i = 0; i < numTrees; i++) {
+                    for (int j = i + 1; j < numTrees; j++) {
+                        double distance = Geodesic.geodesic(tauTrees[i], tauTrees[j], 1.0).geoLength;
+                        System.out.println("Distance between tree " + (i + 1) + " and tree " + (j + 1) + " is " + distance);
+                    }
+                }
+                System.out.println("Done computing distances.\n");
+            } catch (Exception e) {
+                System.err.println("Error parsing input or computing distances: " + e.getMessage());
+                e.printStackTrace();
+            }
+            // Continue to next iteration
         }
     }
 }
