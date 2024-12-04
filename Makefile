@@ -2,7 +2,7 @@ PY4J_PATH=${VIRTUAL_ENV}/share/py4j/py4j0.10.9.7.jar
 CLASSPATH=./build:/usr/share/beast2-mcmc/beast.jar:/usr/share/java/antlr4-runtime.jar:${PY4J_PATH}
 
 run: compile
-	java -cp ${CLASSPATH} Main
+	java -cp ${CLASSPATH} DistanceCalculator
 
 compile:
 	@echo "Compiling..."
